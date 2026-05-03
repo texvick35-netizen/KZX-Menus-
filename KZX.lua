@@ -40,6 +40,7 @@ local S = {
     aimbot       = false,
     teamCheck    = true,
     aliveCheck   = true,
+    wallCheck    = false,
     espNomes     = false,
     espCaixas    = false,
     espLinhas    = false,
@@ -614,6 +615,33 @@ end
 Players.PlayerRemoving:Connect(removeESP)
 
 -- ============================================================
+-- WALL CHECK
+-- ============================================================
+local function hasWall(targetPart)
+    local origin    = camera.CFrame.Position
+    local direction = (targetPart.Position - origin)
+    local dist      = direction.Magnitude
+
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+    -- Excluir o personagem local e o personagem do alvo
+    local toExclude = {}
+    if player.Character then
+        table.insert(toExclude, player.Character)
+    end
+    -- Tentar excluir o char do alvo tambem
+    local parentChar = targetPart.Parent
+    if parentChar then table.insert(toExclude, parentChar) end
+    rayParams.FilterDescendantsInstances = toExclude
+
+    local result = Workspace:Raycast(origin, direction.Unit * dist, rayParams)
+
+    -- Se bateu em algo antes de chegar no alvo = tem parede
+    return result ~= nil
+end
+
+-- ============================================================
 -- AIMBOT REAL
 -- ============================================================
 local function getAimbotTarget()
@@ -631,6 +659,9 @@ local function getAimbotTarget()
         local hum  = char and char:FindFirstChildOfClass("Humanoid")
         if not head or not hum then continue end
         if S.aliveCheck and hum.Health <= 0 then continue end
+
+        -- Wall Check: se ativado e tiver parede, pula esse alvo
+        if S.wallCheck and hasWall(head) then continue end
 
         local screenPos, onScreen = camera:WorldToViewportPoint(head.Position)
         if not onScreen then continue end
@@ -736,6 +767,12 @@ function buildPlayer()
 
     MakeToggle("Aimbot", S.aimbot, function(v)
         S.aimbot = v
+    end)
+
+    MakeToggle("Wall Check", S.wallCheck, function(v)
+        S.wallCheck = v
+        -- ON = nao mira atraves de paredes
+        -- OFF = mira mesmo com parede na frente
     end)
 
     MakeToggle("Team Check", S.teamCheck, function(v)
